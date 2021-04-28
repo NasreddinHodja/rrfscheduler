@@ -5,6 +5,8 @@
 
 #define MAX_Q 1000
 #define QUANTUM 1
+#define MAX_IO_T 7
+#define MAX_SERVICE_T 17
 
 enum PRIORITY {low_priority, normal_priority, high_priority};
 enum IO {disk, mag_tape, printer};
@@ -26,15 +28,20 @@ typedef struct Queue {
   int size;
 } Queue;
 
-int new_pid() {
-    int pid = PROC_COUNT++;
-    PROC_COUNT = PROC_COUNT % MAX_Q;
-    return pid;
+int gen_pid() {
+  int pid = PROC_COUNT++;
+  PROC_COUNT = PROC_COUNT % MAX_Q;
+  return pid;
+}
+
+int rand_duration(bool service_time) {
+  if(service_time) return random() % MAX_SERVICE_T;
+  return random() % MAX_IO_T;
 }
 
 Process* p_create(int pid, int ppid, int status, int priority) {
   Process* p = (Process*) malloc(sizeof(Process));
-  if(pid == -1) pid = new_pid();
+  if(pid == -1) pid = gen_pid();
   if(ppid == -1) ppid = 0;
   p->pid = pid;
   p->ppid = 0;
@@ -45,7 +52,7 @@ Process* p_create(int pid, int ppid, int status, int priority) {
 
 Process* p_fork(Process* p, int status, int priority) {
   Process* child = (Process*) malloc(sizeof(Process));
-  child->pid = new_pid();
+  child->pid = gen_pid();
   child->ppid = p->pid;
   child->status = status;
   child->priority = priority;
@@ -119,8 +126,11 @@ void init() {
 int main() {
   init();
 
-  Process* p = p_create(-1, -1, running, low_priority);
-  printf("%s\n", p_to_string(p_fork(p, waiting, low_priority)));
+  /* Process* p = p_create(-1, -1, running, low_priority); */
+  /* printf("%s\n", p_to_string(p_fork(p, waiting, low_priority))); */
+
+  for(int i = 0; i < 10; i++)
+    printf("%d\n", rand_duration());
 
   return 0;
 }
