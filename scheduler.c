@@ -3,6 +3,10 @@
 #include <stdbool.h>
 
 #define MAX_Q 1000
+#define QUANTUM 1
+
+enum piority {low_priority, normal_priority, high_priority};
+enum io {disk, mag_tape, printer};
 
 typedef struct Process {
   int id;
@@ -76,16 +80,19 @@ Process* q_pop(Queue* q) {
 int main() {
   /* Process* processes[4] = {p_create(1), p_create(2), p_create(3)}; */
   /* Queue* q = q_create(processes, sizeof(processes) / sizeof(Process*)); */
-  Queue* q = q_create(NULL, 0);
-  q_push(q, p_create(1));
-  q_push(q, p_create(2));
-  q_push(q, p_create(3));
+  /* Queue* q = q_create(NULL, 0); */
+  /* q_push(q, p_create(1)); */
+  /* q_push(q, p_create(2)); */
+  /* q_push(q, p_create(3)); */
 
-  q_print(q);
+  /* q_print(q); */
 
-  int idx = q->back - 1;
-  for(int i = 0; i < 10; i++)
-    printf("%d\n", q->queue[idx = q_next_idx(q, idx)]->id);
+  /* int idx = q->back - 1; */
+  /* for(int i = 0; i < 10; i++) */
+  /*   printf("%d\n", q->queue[idx = q_next_idx(q, idx)]->id); */
+
+  enum io a = mag_tape;
+  printf("%d\n", a);
 
   return 0;
 }
