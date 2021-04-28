@@ -1,12 +1,12 @@
 
 # Table of Contents
 
-1.  [Escopo](#orge4de1c4)
-2.  [Premissas a serem definidas](#org63a6e4d)
+1.  [Escopo](#org40b27fc)
+2.  [Premissas a serem definidas](#orge15cd53)
 
 
 
-<a id="orge4de1c4"></a>
+<a id="org40b27fc"></a>
 
 # Escopo
 
@@ -18,13 +18,13 @@
 -   gravar um vídeo de até 10 minutos onde todos os participantes do grupo apresentam o simulador
 
 
-<a id="org63a6e4d"></a>
+<a id="orge15cd53"></a>
 
 # Premissas a serem definidas
 
 -   limite máximo de processos
 -   valor da fatia de tempo
--   tempos de serviço de I/O aleatórios para cada processo criado
+-   tempos de serviço e de I/O aleatórios para cada processo criado
 -   tempos de duração de cada tipo de I/O (disco, fita magnética e impressora)
 -   gerência de processos
     -   definição do PID de cada processo
