@@ -1,15 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #define MAX_Q 1000
 #define QUANTUM 1
 
-enum piority {low_priority, normal_priority, high_priority};
-enum io {disk, mag_tape, printer};
+enum PRIORITY {low_priority, normal_priority, high_priority};
+enum IO {disk, mag_tape, printer};
 
 typedef struct Process {
   int id;
+  int priority;
 } Process;
 
 typedef struct Queue {
@@ -19,10 +21,17 @@ typedef struct Queue {
   int size;
 } Queue;
 
-Process* p_create(int id) {
+Process* p_create(int id, int priority) {
   Process* p = (Process*) malloc(sizeof(Process));
   p->id = id;
+  p->priority = priority;
   return p;
+}
+
+char* p_to_string(Process* p) {
+  char* a;
+  sprintf(a, "{ PID: %d, priority: %d }", p->id, p->priority);
+  return a;
 }
 
 Queue* q_create(Process** a, int size) {
@@ -71,7 +80,7 @@ bool q_push(Queue* q, Process* p) {
 Process* q_pop(Queue* q) {
   if(q->size == 0) return NULL;
   q->size--;
-  Process* p = p_create(q->queue[q->front]->id);
+  Process* p = p_create(q->queue[q->front]->id, q->queue[q->front]->priority);
   free(q->queue[q->front]);
   q->queue[q->front++] = NULL;
   return p;
@@ -81,9 +90,9 @@ int main() {
   /* Process* processes[4] = {p_create(1), p_create(2), p_create(3)}; */
   /* Queue* q = q_create(processes, sizeof(processes) / sizeof(Process*)); */
   /* Queue* q = q_create(NULL, 0); */
-  /* q_push(q, p_create(1)); */
-  /* q_push(q, p_create(2)); */
-  /* q_push(q, p_create(3)); */
+  /* q_push(q, p_create(1, low_priority)); */
+  /* q_push(q, p_create(2, normal_priority)); */
+  /* q_push(q, p_create(3, high_priority)); */
 
   /* q_print(q); */
 
@@ -91,8 +100,8 @@ int main() {
   /* for(int i = 0; i < 10; i++) */
   /*   printf("%d\n", q->queue[idx = q_next_idx(q, idx)]->id); */
 
-  enum io a = mag_tape;
-  printf("%d\n", a);
+  Process* p = p_create(1, low_priority);
+  printf("%s\n", p_to_string(p));
 
   return 0;
 }
