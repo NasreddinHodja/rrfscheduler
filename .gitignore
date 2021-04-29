@@ -1,3 +1,6 @@
 *.o
 *.org
+*.tex
+*.pdf
+*.html
 scheduler

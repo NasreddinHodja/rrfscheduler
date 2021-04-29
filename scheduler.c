@@ -3,11 +3,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#define MAX_Q 1000
-#define MAX_E 1000
-#define MAX_IO_T 7
-#define QUANTUM 1
-#define MAX_SERVICE_T 17
+#define MAX_Q 100
+#define MAX_P 100
+#define QUANTUM 2
+#define MAX_IO_T 5
+#define MAX_SERVICE_T 10
 
 enum PRIORITY {high_priority, normal_priority, low_priority};
 enum IO {disk, mag_tape, printer};
@@ -19,7 +19,6 @@ typedef struct Process {
   int pid;
   int ppid;
   int status;
-  int priority;
 } Process;
 
 typedef struct Queue {
@@ -32,20 +31,24 @@ typedef struct Queue {
 typedef struct SchedulerEntry {
   Process* p;
   int begin;
+  int priority;
   int service_time;
   int* io;
 } SchedulerEntry;
 
 typedef struct Scheduler {
   Queue* queues[3];
-  SchedulerEntry entries[MAX_Q];
+  SchedulerEntry entries[MAX_P];
 } Scheduler;
 
-SchedulerEntry* se_create(Process* p, int begin, int service_time, int* io) {
+SchedulerEntry* se_create(Process* p, int begin, int priority,
+                          int service_time, int* io) {
   SchedulerEntry* se = (SchedulerEntry*) malloc(sizeof(SchedulerEntry));
   se->p = p;
   se->begin = begin;
+  se->priority = priority;
   se->service_time = service_time;
+  se->io = (int*) malloc(sizeof(int) * service_time);
   for(int i = 0; i < service_time; i++)
     se->io[i] = io[i];
   return se;
@@ -53,7 +56,7 @@ SchedulerEntry* se_create(Process* p, int begin, int service_time, int* io) {
 
 int gen_pid() {
   int pid = PROC_COUNT++;
-  PROC_COUNT = PROC_COUNT % MAX_Q;
+  PROC_COUNT = PROC_COUNT % MAX_P;
   return pid;
 }
 
@@ -62,30 +65,29 @@ int rand_duration(bool service_time) {
   return random() % MAX_IO_T;
 }
 
-Process* p_create(int pid, int ppid, int status, int priority) {
+Process* p_create(int pid, int ppid, int status) {
   Process* p = (Process*) malloc(sizeof(Process));
   if(pid == -1) pid = gen_pid();
   if(ppid == -1) ppid = 0;
   p->pid = pid;
   p->ppid = 0;
-  p->status = status;
-  p->priority = priority;
   return p;
 }
 
-Process* p_fork(Process* p, int status, int priority) {
-  Process* child = (Process*) malloc(sizeof(Process));
-  child->pid = gen_pid();
-  child->ppid = p->pid;
-  child->status = status;
-  child->priority = priority;
-  return child;
-}
+// TODO make SchedulerEntry instead of Process
+/* Process* p_fork(Process* p, int status) { */
+/*   p->status = status; */
+/*   Process* child = (Process*) malloc(sizeof(Process)); */
+/*   child->pid = gen_pid(); */
+/*   child->ppid = p->pid; */
+/*   child->status = status; */
+/*   return child; */
+/* } */
 
 char* p_to_string(Process* p) {
   char* a = (char*) malloc(100 * sizeof(char*));
-  sprintf(a, "{ PID: %d, PPID: %d, status: %d, priority: %d }",
-          p->pid, p->ppid, p->status, p->priority);
+  sprintf(a, "{ PID: %d, PPID: %d, status: %d }",
+          p->pid, p->ppid, p->status);
   return a;
 }
 
@@ -106,8 +108,10 @@ Scheduler* s_create(Queue* queues[3], SchedulerEntry* entries) {
     for(int i = 0; i < 3; i++)
       queues[i] = q_create(NULL, 0);
   }
-  s->queues = queues;
-  s->entries = entries;
+  for(int i = 0; i < 3; i++)
+    s->queues[i] = queues[i];
+  for(int i = 0; i < MAX_P; i++)
+    s->entries[i] = entries[i];
 }
 
 int q_next_idx(Queue* q, int idx) {
@@ -145,17 +149,17 @@ Process* q_pop(Queue* q) {
   if(q->size == 0) return NULL;
   q->size--;
   Process* p = p_create(q->queue[q->front]->pid, q->queue[q->front]->pid,
-                        q->queue[q->front]->status, q->queue[q->front]->priority);
+                        q->queue[q->front]->status);
   free(q->queue[q->front]);
   q->queue[q->front++] = NULL;
   return p;
 }
 
-void schedule() {
-  while(true) {
+/* void schedule() { */
+/*   while(true) { */
 
-  }
-}
+/*   } */
+/* } */
 
 void init() {
   PROC_COUNT = 0;
@@ -164,9 +168,11 @@ void init() {
 int main() {
   init();
 
-  SchedulerEntry entries[10] = {se_entry()};
+  // TODO make a test case
+  int ios_p1[5] = {0, 0, 0, 0, 0};
+  SchedulerEntry* p1_entry = se_create(p_create(-1, -1, ready), 0, low_priority, 5, ios_p1);
 
-  Scheduler* scheduler = s_create(NULL, entries)
+  /* Scheduler* scheduler = s_create(NULL, entries) */
 
   return 0;
 }
