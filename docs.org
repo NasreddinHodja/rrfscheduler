@@ -5,7 +5,7 @@
 * Includes
 + ~stdio~: for ~I/O~
 + ~stdlib~: for memory manipulation (~malloc~, ~free~)
-+ ~stdbool~: for the usage of ~true~ e ~false~
++ ~stdbool~: for the usage of ~true~ and ~false~
 + ~unistd~: randomization
 #+begin_src c :tangle yes
 #include <stdio.h>
