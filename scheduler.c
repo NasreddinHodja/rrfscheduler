@@ -4,11 +4,12 @@
 #include <unistd.h>
 
 #define MAX_Q 1000
-#define QUANTUM 1
+#define MAX_E 1000
 #define MAX_IO_T 7
+#define QUANTUM 1
 #define MAX_SERVICE_T 17
 
-enum PRIORITY {low_priority, normal_priority, high_priority};
+enum PRIORITY {high_priority, normal_priority, low_priority};
 enum IO {disk, mag_tape, printer};
 enum PROC_STATUS {waiting, ready, running};
 
@@ -27,6 +28,28 @@ typedef struct Queue {
   int back;
   int size;
 } Queue;
+
+typedef struct SchedulerEntry {
+  Process* p;
+  int begin;
+  int service_time;
+  int* io;
+} SchedulerEntry;
+
+typedef struct Scheduler {
+  Queue* queues[3];
+  SchedulerEntry entries[MAX_Q];
+} Scheduler;
+
+SchedulerEntry* se_create(Process* p, int begin, int service_time, int* io) {
+  SchedulerEntry* se = (SchedulerEntry*) malloc(sizeof(SchedulerEntry));
+  se->p = p;
+  se->begin = begin;
+  se->service_time = service_time;
+  for(int i = 0; i < service_time; i++)
+    se->io[i] = io[i];
+  return se;
+}
 
 int gen_pid() {
   int pid = PROC_COUNT++;
@@ -66,16 +89,25 @@ char* p_to_string(Process* p) {
   return a;
 }
 
-Queue* q_create(Process** a, int size) {
+Queue* q_create(Process** procs, int size) {
   Queue* q = (Queue*) malloc(sizeof(Queue));
   q->front = 0;
   q->back = size;
   q->size = size;
-  if(a == NULL) return q;
-
+  if(procs == NULL) return q;
   for(int i = 0; i < size; i++)
-    q->queue[i] = a[i];
+    q->queue[i] = procs[i];
   return q;
+}
+
+Scheduler* s_create(Queue* queues[3], SchedulerEntry* entries) {
+  Scheduler* s = (Scheduler*) malloc(sizeof(Scheduler));
+  if(queues == NULL){
+    for(int i = 0; i < 3; i++)
+      queues[i] = q_create(NULL, 0);
+  }
+  s->queues = queues;
+  s->entries = entries;
 }
 
 int q_next_idx(Queue* q, int idx) {
@@ -119,6 +151,12 @@ Process* q_pop(Queue* q) {
   return p;
 }
 
+void schedule() {
+  while(true) {
+
+  }
+}
+
 void init() {
   PROC_COUNT = 0;
 }
@@ -126,11 +164,9 @@ void init() {
 int main() {
   init();
 
-  /* Process* p = p_create(-1, -1, running, low_priority); */
-  /* printf("%s\n", p_to_string(p_fork(p, waiting, low_priority))); */
+  SchedulerEntry entries[10] = {se_entry()};
 
-  for(int i = 0; i < 10; i++)
-    printf("%d\n", rand_duration());
+  Scheduler* scheduler = s_create(NULL, entries)
 
   return 0;
 }
