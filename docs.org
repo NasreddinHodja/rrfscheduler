@@ -7,7 +7,7 @@
 + ~stdlib~: for memory manipulation (~malloc~, ~free~)
 + ~stdbool~: for the usage of ~true~ and ~false~
 + ~unistd~: randomization
-#+begin_src c :tangle yes
+#+begin_src c
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -24,7 +24,7 @@
 + ~IO~: types of ~I/O~
 + ~PROC_STATUS~: possible process states
 + ~PROC_COUND~: process counter
-#+begin_src c :tangle yes
+#+begin_src c
 #define MAX_Q 1000
 #define MAX_P 1000
 #define QUANTUM 1
@@ -44,11 +44,13 @@ int PROC_COUNT;
 + ~pid~ (=int=): unique id of process
 + ~ppid~ (=int=): unique id of parent process
 + ~status~ (=PROC_STATUS=): process status
-#+begin_src c :tangle yes
++ ~t~ (=int=): amount of time executed
+#+begin_src c
 typedef struct Process {
   int pid;
   int ppid;
   int status;
+  int t;
 } Process;
 #+end_src
 
@@ -59,13 +61,14 @@ Creates a new =Process= with given arguments as fields.
   - ~ppid~ (=int=): unique id of parent process
   - ~status~ (=PROC_STATUS=): process status
 + *out* (=Process*=): pointer to the =Process= created
-#+begin_src c :tangle yes
+#+begin_src c
 Process* p_create(int pid, int ppid, int status) {
   Process* p = (Process*) malloc(sizeof(Process));
   if(pid == -1) pid = gen_pid();
   if(ppid == -1) ppid = 0;
   p->pid = pid;
   p->ppid = 0;
+  p->t = 0;
   return p;
 }
 #+end_src
@@ -77,7 +80,7 @@ Generates a string representation of the given =Process=.
   - ~ppid~ (=int=): id do parente do processo
   - ~status~ (=PROC_STATUS=): status do processo
 + *out* (=Process*=): =Process= pointer created
-#+begin_src c :tangle yes
+#+begin_src c
 char* p_to_string(Process* p) {
   char* a = (char*) malloc(100 * sizeof(char*));
   sprintf(a, "{ PID: %d, PPID: %d, status: %d }",
@@ -92,7 +95,7 @@ FIFO of =Process= pointers.
 + ~front~ (=int=): index for the first element of the queue
 + ~back~ (=int=): index after the last element of the queue
 + ~size~ (=int=): number of elements in the queue
-#+begin_src c :tangle yes
+#+begin_src c
 typedef struct Queue {
   Process* queue[MAX_Q];
   int front;
@@ -107,7 +110,7 @@ Creates a new =Queue= with given arguments as fields.
   - ~procs~ (=Process**=): array of =Process= pointers
   - ~size~ (=int=): size of procs
 + *out* (=Queue*=): =Queue= pointer created
-#+begin_src c :tangle yes
+#+begin_src c
 Queue* q_create(Process** procs, int size) {
   Queue* q = (Queue*) malloc(sizeof(Queue));
   q->front = 0;
@@ -126,7 +129,7 @@ Given a =Queue*= ~q~ and an index ~idx~, returns the index of next item in the q
   - ~q~ (=Queue*=)
   - ~idx~ (=int=)
 + *out* (=int=): index of next item
-#+begin_src c :tangle yes
+#+begin_src c
 int q_next_idx(Queue* q, int idx) {
   int i = idx;
   do {
@@ -136,25 +139,29 @@ int q_next_idx(Queue* q, int idx) {
 }
 #+end_src
 
-*** ~q_print~
-Print the =Queue= pointed by ~q.~
+*** ~q_to_string~
+Returns a representation of given =Queue= as a string;
 + *in*
   - ~q~ (=Queue*=)
-  - ~idx~ (=int=)
-#+begin_src c :tangle yes
-void q_print(Queue* q) {
++ *out* (=char*=): string representation of ~*q~
+#+begin_src c
+char* q_to_string(Queue* q) {
+  char* s = (char*) malloc(sizeof(char) * MAX_Q);
+  int s_idx = 0;
   int i = q->front;
-  printf("[ ");
+  s[s_idx++] = '[';
   bool st = true;
   if(q->size != 0) {
     do {
-      if(!st) printf(" ");
-      printf("%d", q->queue[i]->pid);
+      if(!st) s[s_idx++] = ' ';
+      s[s_idx++] = q->queue[i]->pid + '0';
       i = q_next_idx(q, i);
       st = false;
     } while(i != q->front);
   }
-  printf(" ]\n");
+  s[s_idx++] = ']';
+  s[s_idx] = '\0';
+  return s;
 }
 #+end_src
 
@@ -164,7 +171,7 @@ Pushes =Process= pointed by ~p~ to =Queue= pointed by ~q.~
   - ~q~ (=Queue*=)
   - ~p~ (=Process*=)
 + *out* (=bool=): =true= if successful, =false= if else
-#+begin_src c :tangle yes
+#+begin_src c
 bool q_push(Queue* q, Process* p) {
   if(q->back == MAX_Q || p == NULL) return false;
   q->size++;
@@ -179,13 +186,11 @@ Pops from =Queue= pointed by ~q~.
 + *in*
   - ~q~ (=Queue*=)
 + *out* (=Process*=): element popped from ~q~, =NULL= if unsucsessful
-#+begin_src c :tangle yes
+#+begin_src c
 Process* q_pop(Queue* q) {
   if(q->size == 0) return NULL;
   q->size--;
-  Process* p = p_create(q->queue[q->front]->pid, q->queue[q->front]->pid,
-                        q->queue[q->front]->status);
-  free(q->queue[q->front]);
+  Process* p = q->queue[q->front];
   q->queue[q->front++] = NULL;
   return p;
 }
@@ -199,7 +204,7 @@ Contains a pointer to a =Process=, along with information relevant to the schedu
 + ~service_time~ (=int=): process service_time (quantums)
 + ~io~ (=int*=): array of size ~service_time~ containing types of ~I/O~ operations at the index corresponding to what moment in the service time where they ocur
   - ex.: ~{0, 1, 0, 2}~ indicates that the process realizes a type =1= ~I/O~ operation after 1 quantum of execution, and a type =2= ~I/O~ operation after 3 quantums of execution
-#+begin_src c :tangle yes
+#+begin_src c
 typedef struct SchedulerEntry {
   Process* p;
   int begin;
@@ -214,17 +219,16 @@ Generates a =SchedulerEntry= for given process.
 + *in*
   - ~p~ (=Process*=)
   - ~begin~ (=int=)
-  - ~priority~ (=int=)
   - ~service_time~ (=int=)
   - ~io~ (=int*=)
 + *out* (=SchedulerEntry*=)
-#+begin_src c :tangle yes
-SchedulerEntry* se_create(Process* p, int begin, int priority,
-                          int service_time, int* io) {
+#+begin_src c
+SchedulerEntry* se_create(Process* p, int begin, int service_time,
+                          int* io) {
   SchedulerEntry* se = (SchedulerEntry*) malloc(sizeof(SchedulerEntry));
   se->p = p;
   se->begin = begin;
-  se->priority = priority;
+  se->priority = high_priority;
   se->service_time = service_time;
   se->io = (int*) malloc(sizeof(int) * service_time);
   for(int i = 0; i < service_time; i++)
@@ -237,18 +241,156 @@ SchedulerEntry* se_create(Process* p, int begin, int priority,
 Emulates a scheduler with 3 priority queues.
 + ~queues~ (=Queue**=): 3 priority queues
 + ~entries~ (=SchedulerEntry**=): array of size =MAX_P= containg the entries
-#+begin_src c :tangle yes
++ ~size~ (=int=): size of ~entries~
++ ~t~ (=int=): amount of time in execution
+#+begin_src c
 typedef struct Scheduler {
   Queue* queues[3];
-  SchedulerEntry entries[MAX_P];
+  SchedulerEntry* entries[MAX_P];
+  int size;
+  int t;
 } Scheduler;
+#+end_src
+
+*** ~s_create~
+Creates a =Scheduler=.
++ *in*
+  - ~queues~ (=Queue**=)
+  - ~entries~ (=SchedulerEntries**=)
+  - ~size~ (=int=)
++ *out* (=Scheduler*=)
+#+begin_src c
+Scheduler* s_create(Queue* queues[3], SchedulerEntry** entries,
+                    int size) {
+  Scheduler* s = (Scheduler*) malloc(sizeof(Scheduler));
+  if(queues == NULL){
+    queues = (Queue**) malloc(sizeof(Queue*) * 3);
+    for(int i = 0; i < 3; i++)
+      queues[i] = q_create(NULL, 0);
+  }
+  s->t = 0;
+  s->size = size;
+  for(int i = 0; i < 3; i++)
+    s->queues[i] = queues[i];
+  for(int i = 0; i < size; i++)
+    s->entries[i] = entries[i];
+  return s;
+}
+#+end_src
+
+*** ~s_recieve_procs~
+Populates the priority queues os given scheduler with processes that have arived since ~from~ until current ~s->t~.
++ *in*
+  - ~s~ (=Scheduler*=)
+  - ~from~ (=int=)
+#+begin_src c
+void s_recieve_procs(Scheduler* s, int from) {
+  for(int i = 0; i < s->size; i++)
+    if(s->entries[i]->begin > from && s->entries[i]->begin <= s->t)
+      q_push(s->queues[s->entries[i]->priority], s->entries[i]->p);
+}
+#+end_src
+
+*** ~s_running~
+Verifies if there are still processes left to run.
++ *in*
+  - ~s~ (=Scheduler*=)
++ *out* (=bool=)
+#+begin_src c
+bool s_running(Scheduler* s) {
+  for(int i = 0; i < 3; i++)
+    if(s->queues[i]->size > 0) return true;
+  return false;
+}
+#+end_src
+
+*** ~s_find_entry~
+Finds entry for given process.
++ *in*
+  - ~s~ (=Scheduler*=)
+  - ~p~ (=Process*=)
++ *out* (=SchedulerEntry*=)
+#+begin_src c
+SchedulerEntry* s_find_entry(Scheduler* s, Process* p) {
+  for(int i = 0; i < s->size; i++)
+    if(s->entries[i]->p == p) return s->entries[i];
+  return NULL;
+}
+#+end_src
+
+*** ~s_execute~
+Executes the next process given by ~q_idx~. Returns =true= if executed and =false= in case of error.
++ *in*
+  - ~s~ (=Scheduler*=)
+  - ~q_idx~ (=int=)
++ *out* (=bool=)
+#+begin_src c
+bool s_execute(Scheduler* s, int q_idx) {
+  Process* p = q_pop(s->queues[q_idx]);
+  SchedulerEntry* se = s_find_entry(s, p);
+  if(se->priority < low_priority) se->priority++;
+
+  // execute process
+  for(int i = 0; i < QUANTUM; i++) {
+    // check if io op now
+    for(int j = 0; j < se->service_time; j++) {
+      if(se->io[p->t+i]) {
+        // TODO execute ios
+        p->status = waiting;
+      }
+    }
+    if(p->t + i <= se->service_time) p->t++;
+    s->t++;
+  }
+  printf("scheduled proc: %5d, service time left: %3d\n\n",
+         p->pid, se->service_time - p->t);
+
+  // if done executing
+  if(p->t == se->service_time) return true;
+
+  // should't happen
+  if(!q_push(s->queues[se->priority], p)) {
+    printf("error: can't push to queue %d!\n", q_idx);
+    return false;
+  }
+  return true;
+}
+#+end_src
+
+*** ~schedule~
+Executes the entire process of scheduling until no process is left.
++ *in*
+  - ~s~ (=Scheduler*=)
+#+begin_src c
+void schedule(Scheduler* s) {
+  int it = 0;
+  do {
+    bool executed = false;
+    for(int i = 0; i < 3; i++) {
+      s_recieve_procs(s, s->t-2);
+      if(s->queues[i]->size == 0) continue;
+      /* for(int j = 0; j < 3; j++) */
+      /*   printf("%s\n", q_to_string(s->queues[j])); */
+        printf("\nt: %8d,\n", s->t);
+        printf("queues: \n\thigh: %s,\n\tnormal: %s,\n\tlow: %s\n\n",
+                q_to_string(s->queues[high_priority]),
+                q_to_string(s->queues[normal_priority]),
+                q_to_string(s->queues[low_priority]));
+      executed = s_execute(s, i);
+      printf("\n");
+      break;
+    }
+    /* if(it++ > 30) break; */
+    /* s->t += 2; */
+  } while(s_running(s));
+}
 #+end_src
 
 * Utils
 ** ~gen_pid~
 Generates unique ~PID~.
 + *out* (=int=): new unique ~PID~
-#+begin_src c :tangle yes
+#+begin_src c
 int gen_pid() {
   int pid = PROC_COUNT++;
   PROC_COUNT = PROC_COUNT % MAX_P;
@@ -261,9 +403,17 @@ Generates random duration for service time or ~I/O~ operation time.
 + *in*
   - ~service_time~ (=bool=): if =true=, indicates that a service time is needed
 + *out* (=int=): random service time, if ~service_time~ is =true=, or else random durantion of ~I/O~ operation
-#+begin_src c :tangle yes
+#+begin_src c
 int rand_duration(bool service_time) {
   if(service_time) return random() % MAX_SERVICE_T;
   return random() % MAX_IO_T;
+}
+#+end_src
+
+** ~init~
+Init function.
+#+begin_src c
+void init() {
+  PROC_COUNT = 1;
 }
 #+end_src
