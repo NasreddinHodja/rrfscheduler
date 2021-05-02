@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <string.h>
 
 #define MAX_Q 100
 #define MAX_P 100
@@ -9,8 +10,7 @@
 #define MAX_IO_T 5
 #define MAX_SERVICE_T 10
 
-enum PRIORITY {high_priority, normal_priority, low_priority};
-enum IO {disk, mag_tape, printer};
+enum Q_TYPES {high_priority, low_priority, disk, mag_tape, printer};
 enum PROC_STATUS {waiting, ready, running};
 
 int PROC_COUNT;
@@ -20,42 +20,27 @@ typedef struct Process {
   int ppid;
   int status;
   int t;
+  int begin;
+  int priority;
+  int service_time;
+  int* io;
+  int curr_io;
+  int t_io;
 } Process;
 
 typedef struct Queue {
-  Process* queue[MAX_Q];
+  Process** queue;
   int front;
   int back;
   int size;
 } Queue;
 
-typedef struct SchedulerEntry {
-  Process* p;
-  int begin;
-  int priority;
-  int service_time;
-  int* io;
-} SchedulerEntry;
-
 typedef struct Scheduler {
-  Queue* queues[3];
-  SchedulerEntry* entries[MAX_P];
+  Process** procs;
+  Queue** queues;
   int size;
   int t;
 } Scheduler;
-
-SchedulerEntry* se_create(Process* p, int begin, int service_time,
-                          int* io) {
-  SchedulerEntry* se = (SchedulerEntry*) malloc(sizeof(SchedulerEntry));
-  se->p = p;
-  se->begin = begin;
-  se->priority = high_priority;
-  se->service_time = service_time;
-  se->io = (int*) malloc(sizeof(int) * service_time);
-  for(int i = 0; i < service_time; i++)
-    se->io[i] = io[i];
-  return se;
-}
 
 int gen_pid() {
   int pid = PROC_COUNT++;
@@ -64,35 +49,54 @@ int gen_pid() {
 }
 
 int rand_duration(bool service_time) {
-  if(service_time) return random() % MAX_SERVICE_T;
-  return random() % MAX_IO_T;
+  if(service_time) return random() % (MAX_SERVICE_T) + 1;
+  return random() % (MAX_IO_T) + 1;
 }
 
-Process* p_create(int pid, int ppid, int status) {
+Process* p_create(int pid, int ppid, int begin, int service_time,
+                  int* io) {
   Process* p = (Process*) malloc(sizeof(Process));
   if(pid == -1) pid = gen_pid();
   if(ppid == -1) ppid = 0;
   p->pid = pid;
   p->ppid = 0;
+  p->status = ready;
   p->t = 0;
+  p->begin = begin;
+  p->priority = high_priority;
+  p->service_time = service_time;
+  p->io = io;
+  p->curr_io = 0;
+  p->t_io = 0;
   return p;
 }
 
-// TODO make SchedulerEntry instead of Process
-/* Process* p_fork(Process* p, int status) { */
-/*   p->status = status; */
-/*   Process* child = (Process*) malloc(sizeof(Process)); */
-/*   child->pid = gen_pid(); */
-/*   child->ppid = p->pid; */
-/*   child->status = status; */
-/*   return child; */
-/* } */
-
 char* p_to_string(Process* p) {
-  char* a = (char*) malloc(100 * sizeof(char*));
-  sprintf(a, "{ PID: %d, PPID: %d, status: %d }",
+  char* p_info = (char*) malloc(100 * sizeof(char*));
+  sprintf(p_info, "PID: %d, PPID: %d, status: %d",
           p->pid, p->ppid, p->status);
-  return a;
+
+  char* s = (char*) malloc(sizeof(char) * 256);
+  sprintf(s, "\nbegin: %d, service time: %d, priority: %d\n",
+          p->begin, p->service_time, p->priority);
+  strcat(p_info, s);
+
+  char* io = (char*) malloc(sizeof(char) * 256);
+  int io_idx = 0;
+  io[io_idx++] = '[';
+  io[io_idx++] = ' ';
+  for(int i = 0; i < p->service_time; i++) {
+    if(p->io[i] == -1)
+      io[io_idx++] = '*';
+    else
+      io[io_idx++] = '0' + p->io[i];
+    io[io_idx++] = ' ';
+  }
+  io[io_idx++] = ']';
+  io[io_idx] = '\0';
+
+  strcat(p_info, io);
+  return p_info;
 }
 
 Queue* q_create(Process** procs, int size) {
@@ -100,26 +104,23 @@ Queue* q_create(Process** procs, int size) {
   q->front = 0;
   q->back = size;
   q->size = size;
+  q->queue = (Process**) malloc(sizeof(Process*) * MAX_Q);
   if(procs == NULL) return q;
   for(int i = 0; i < size; i++)
     q->queue[i] = procs[i];
   return q;
 }
 
-Scheduler* s_create(Queue* queues[3], SchedulerEntry** entries,
-                    int size) {
+Scheduler* s_create(Process** procs, int size) {
   Scheduler* s = (Scheduler*) malloc(sizeof(Scheduler));
-  if(queues == NULL){
-    queues = (Queue**) malloc(sizeof(Queue*) * 3);
-    for(int i = 0; i < 3; i++)
-      queues[i] = q_create(NULL, 0);
-  }
+  s->procs = (Process**) malloc(sizeof(Process*) * MAX_P);
+  for(int i = 0; i < size; i++)
+    s->procs[i] = procs[i];
+  s->queues = (Queue**) malloc(sizeof(Queue*) * (printer+1));
+  for(int i = high_priority; i <= printer; i++)
+    s->queues[i] = q_create(NULL, 0);
   s->t = 0;
   s->size = size;
-  for(int i = 0; i < 3; i++)
-    s->queues[i] = queues[i];
-  for(int i = 0; i < size; i++)
-    s->entries[i] = entries[i];
   return s;
 }
 
@@ -132,17 +133,16 @@ int q_next_idx(Queue* q, int idx) {
 }
 
 char* q_to_string(Queue* q) {
-  char* s = (char*) malloc(sizeof(char) * MAX_Q);
+  char* s = (char*) malloc(sizeof(char) * (MAX_Q)*2);
   int s_idx = 0;
   int i = q->front;
   s[s_idx++] = '[';
-  bool st = true;
+  s[s_idx++] = ' ';
   if(q->size != 0) {
     do {
-      if(!st) s[s_idx++] = ' ';
       s[s_idx++] = q->queue[i]->pid + '0';
+      s[s_idx++] = ' ';
       i = q_next_idx(q, i);
-      st = false;
     } while(i != q->front);
   }
   s[s_idx++] = ']';
@@ -151,10 +151,11 @@ char* q_to_string(Queue* q) {
 }
 
 bool q_push(Queue* q, Process* p) {
-  if(q->back == MAX_Q || p == NULL) return false;
+  if(q->size == MAX_Q-1 || p == NULL) return false;
   q->size++;
   q->back++;
   q->queue[q->back-1] = p;
+  printf("pushed %d\n", p->pid);
   return true;
 }
 
@@ -168,74 +169,125 @@ Process* q_pop(Queue* q) {
 
 void s_recieve_procs(Scheduler* s, int from) {
   for(int i = 0; i < s->size; i++)
-    if(s->entries[i]->begin > from && s->entries[i]->begin <= s->t)
-      q_push(s->queues[s->entries[i]->priority], s->entries[i]->p);
+    if(s->procs[i]->begin > from && s->procs[i]->begin <= s->t)
+      q_push(s->queues[s->procs[i]->priority], s->procs[i]);
 }
 
 bool s_running(Scheduler* s) {
-  for(int i = 0; i < 3; i++)
+  for(int i = high_priority; i <= printer; i++)
     if(s->queues[i]->size > 0) return true;
   return false;
 }
 
-SchedulerEntry* s_find_entry(Scheduler* s, Process* p) {
-  for(int i = 0; i < s->size; i++)
-    if(s->entries[i]->p == p) return s->entries[i];
-  return NULL;
+void s_execute_io(Scheduler* s) {
+  for(int i = disk; i <= printer; i++) {
+    Queue* q = s->queues[i];
+    if(q->size == 0) continue;
+    Process* p = q_pop(q);
+    p->t_io--;
+    printf("==> process %d executed io, %d quantum left\n", p->pid, p->t_io);
+    if(p->t_io == 0) {
+      printf("-> proc %d comes back from io\n", p->pid);
+      switch(p->curr_io) {
+        case disk:
+          p->priority = low_priority;
+          q_push(s->queues[low_priority], p);
+          break;
+        case mag_tape:
+        case printer:
+          p->priority = high_priority;
+          q_push(s->queues[high_priority], p);
+          break;
+      }
+      p->curr_io = 0;
+      continue;
+    }
+    q_push(q, p);
+  }
+}
+
+void s_print(Scheduler* s) {
+  printf("\nt: %8d\n", s->t);
+  printf("queues: \n\thigh: %s\n\tlow: %s\nio:\n\tdisk: %s\n\tmag_tape: %s\n\tprinter: %s\n\n",
+          q_to_string(s->queues[high_priority]),
+          q_to_string(s->queues[low_priority]),
+          q_to_string(s->queues[disk]),
+          q_to_string(s->queues[mag_tape]),
+          q_to_string(s->queues[printer]));
 }
 
 bool s_execute(Scheduler* s, int q_idx) {
-  Process* p = q_pop(s->queues[q_idx]);
-  SchedulerEntry* se = s_find_entry(s, p);
-  if(se->priority < low_priority) se->priority++;
-
-  // execute process
-  for(int i = 0; i < QUANTUM; i++) {
-    // check if io op now
-    for(int j = 0; j < se->service_time; j++) {
-      if(se->io[p->t+i]) {
-        // TODO execute ios
-        p->status = waiting;
-      }
+  if(q_idx == -1) {
+    s_print(s);
+    for(int i = 0; i < QUANTUM; i++) {
+      s_execute_io(s);
+      s->t++;
     }
-    if(p->t + i <= se->service_time) p->t++;
+    printf("scheduled proc: none, service time left: none\n\n");
+    return true;
+  }
+
+  s_print(s);
+  // execute process
+  Process* p = q_pop(s->queues[q_idx]);
+  p->status = running;
+  bool went_io = false;
+  if(p->priority < low_priority) p->priority++;
+  for(int i = 0; i < QUANTUM; i++) {
+    if(p->curr_io != 0) {
+      s_execute_io(s);
+      continue;
+    }
+    // check if io op now
+    if(p->io[p->t] != -1 && p->t < p->service_time) {
+      p->status = waiting;
+      p->t_io = rand_duration(false);
+      p->curr_io = p->io[p->t];
+      printf("===> %d goes to io for %d quantum\n", p->pid, p->t_io);
+      q_push(s->queues[p->io[p->t]], p);
+      went_io = true;
+      p->t++;
+    }
+
+    if(p->t + 1 <= p->service_time && p->curr_io == 0) p->t++;
+
+    s_execute_io(s);
     s->t++;
   }
   printf("scheduled proc: %5d, service time left: %3d\n\n",
-         p->pid, se->service_time - p->t);
+         p->pid, p->service_time - p->t);
 
   // if done executing
-  if(p->t == se->service_time) return true;
+  if(p->t == p->service_time) return true;
 
-  // should't happen
-  if(!q_push(s->queues[se->priority], p)) {
+  if(!went_io && p->curr_io == 0 && !q_push(s->queues[p->priority], p)) {
+    // should't happen
     printf("error: can't push to queue %d!\n", q_idx);
     return false;
   }
+  if(p->curr_io == 0) p->status = ready;
   return true;
 }
 
 void schedule(Scheduler* s) {
-  int it = 0;
+  bool st = true;
   do {
     bool executed = false;
-    for(int i = 0; i < 3; i++) {
-      s_recieve_procs(s, s->t-2);
+    if(st) printf("------------//--------------\n");
+    s_recieve_procs(s, s->t-2);
+    for(int i = high_priority; i <= low_priority; i++) {
       if(s->queues[i]->size == 0) continue;
-      /* for(int j = 0; j < 3; j++) */
-      /*   printf("%s\n", q_to_string(s->queues[j])); */
-        printf("\nt: %8d,\n", s->t);
-        printf("queues: \n\thigh: %s,\n\tnormal: %s,\n\tlow: %s\n\n",
-                q_to_string(s->queues[high_priority]),
-                q_to_string(s->queues[normal_priority]),
-                q_to_string(s->queues[low_priority]));
       executed = s_execute(s, i);
-      printf("\n");
       break;
     }
-    /* if(it++ > 30) break; */
-    /* s->t += 2; */
+    if(executed == false) {
+      executed = s_execute(s, -1);
+    }
+    printf("------------//--------------\n");
+    st = false;
   } while(s_running(s));
+
+  printf("Done!\n");
 }
 
 void init() {
@@ -246,21 +298,16 @@ int main() {
   init();
 
   // TODO make a test case
-  int ios_p1[5] = {0, 0, 0, 0, 0};
-  SchedulerEntry* p1 = se_create(p_create(-1, -1, ready),
-                                 0, 10, ios_p1);
-  int ios_p2[5] = {0, 0, 0, 0, 0};
-  SchedulerEntry* p2 = se_create(p_create(-1, -1, ready),
-                                 2, 10, ios_p2);
-  int ios_p3[5] = {0, 0, 0, 0, 0};
-  SchedulerEntry* p3 = se_create(p_create(-1, -1, ready),
-                                 5, 10, ios_p2);
+  int ios_p1[5] = {-1, printer, -1, -1, -1};
+  Process* p1 = p_create(-1, -1, 0, 5, ios_p1);
+  int ios_p2[5] = {-1, printer, -1, -1, -1};
+  Process* p2 = p_create(-1, -1, 2, 5, ios_p2);
+  int ios_p3[5] = {-1, -1, -1, -1, -1};
+  Process* p3 = p_create(-1, -1, 5, 5, ios_p3);
 
+  Process* procs[3] = {p1, p2, p3};
 
-  int n_entries = 3;
-  SchedulerEntry* entries[3] = {p1, p2, p3};
-
-  Scheduler* scheduler = s_create(NULL, entries, n_entries);
+  Scheduler* scheduler = s_create(procs, 3);
 
   schedule(scheduler);
 
