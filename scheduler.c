@@ -155,7 +155,6 @@ bool q_push(Queue* q, Process* p) {
   q->size++;
   q->back++;
   q->queue[q->back-1] = p;
-  printf("pushed %d\n", p->pid);
   return true;
 }
 
@@ -185,9 +184,7 @@ void s_execute_io(Scheduler* s) {
     if(q->size == 0) continue;
     Process* p = q_pop(q);
     p->t_io--;
-    printf("==> process %d executed io, %d quantum left\n", p->pid, p->t_io);
     if(p->t_io == 0) {
-      printf("-> proc %d comes back from io\n", p->pid);
       switch(p->curr_io) {
         case disk:
           p->priority = low_priority;
@@ -243,7 +240,7 @@ bool s_execute(Scheduler* s, int q_idx) {
       p->status = waiting;
       p->t_io = rand_duration(false);
       p->curr_io = p->io[p->t];
-      printf("===> %d goes to io for %d quantum\n", p->pid, p->t_io);
+      /* printf("===> %d goes to io for %d quantum\n", p->pid, p->t_io); */
       q_push(s->queues[p->io[p->t]], p);
       went_io = true;
       p->t++;
@@ -302,8 +299,8 @@ int main() {
   Process* p1 = p_create(-1, -1, 0, 5, ios_p1);
   int ios_p2[5] = {-1, printer, -1, -1, -1};
   Process* p2 = p_create(-1, -1, 2, 5, ios_p2);
-  int ios_p3[5] = {-1, -1, -1, -1, -1};
-  Process* p3 = p_create(-1, -1, 5, 5, ios_p3);
+  int ios_p3[5] = {-1, -1, -1, mag_tape, -1};
+  Process* p3 = p_create(-1, -1, 1, 5, ios_p3);
 
   Process* procs[3] = {p1, p2, p3};
 
