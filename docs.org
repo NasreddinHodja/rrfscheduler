@@ -378,8 +378,8 @@ Frees memory allocated by a ~s_create~.
   - ~s~ (=Scheduler*=)
 #+begin_src c
 void s_destroy(Scheduler* s) {
-  /* for(int i = 0; i < s->size; i++) */
-  /*   p_destroy(s->procs[i]); */
+  for(int i = 0; i < s->size; i++)
+    p_destroy(s->procs[i]);
   free(s->procs);
   for(int i = 0; i < 5; i++)
     q_destroy(s->queues[i]);

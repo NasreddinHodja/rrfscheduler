@@ -1,0 +1,119 @@
+------------//--------------
+
+t:        0
+queues: 
+	high: [ 1 ]
+	low: [ ]
+io:
+	disk: [ ]
+	mag_tape: [ ]
+	printer: [ ]
+
+scheduled proc:     1, service time left:   3
+
+------------//--------------
+
+t:        2
+queues: 
+	high: [ 2 ]
+	low: [ ]
+io:
+	disk: [ ]
+	mag_tape: [ ]
+	printer: [ 1 ]
+
+scheduled proc:     2, service time left:   3
+
+------------//--------------
+
+t:        4
+queues: 
+	high: [ 3 ]
+	low: [ ]
+io:
+	disk: [ ]
+	mag_tape: [ ]
+	printer: [ 2 1 ]
+
+scheduled proc:     3, service time left:   3
+
+------------//--------------
+
+t:        6
+queues: 
+	high: [ 1 ]
+	low: [ 3 ]
+io:
+	disk: [ ]
+	mag_tape: [ ]
+	printer: [ 2 ]
+
+scheduled proc:     1, service time left:   1
+
+------------//--------------
+
+t:        8
+queues: 
+	high: [ 2 ]
+	low: [ 3 1 ]
+io:
+	disk: [ ]
+	mag_tape: [ ]
+	printer: [ ]
+
+scheduled proc:     2, service time left:   1
+
+------------//--------------
+
+t:       10
+queues: 
+	high: [ ]
+	low: [ 3 1 2 ]
+io:
+	disk: [ ]
+	mag_tape: [ ]
+	printer: [ ]
+
+scheduled proc:     3, service time left:   1
+
+------------//--------------
+
+t:       12
+queues: 
+	high: [ ]
+	low: [ 1 2 ]
+io:
+	disk: [ ]
+	mag_tape: [ 3 ]
+	printer: [ ]
+
+scheduled proc:     1, service time left:   0
+
+------------//--------------
+
+t:       14
+queues: 
+	high: [ 3 ]
+	low: [ 2 ]
+io:
+	disk: [ ]
+	mag_tape: [ ]
+	printer: [ ]
+
+scheduled proc:     3, service time left:   0
+
+------------//--------------
+
+t:       16
+queues: 
+	high: [ ]
+	low: [ 2 ]
+io:
+	disk: [ ]
+	mag_tape: [ ]
+	printer: [ ]
+
+scheduled proc:     2, service time left:   0
+
+------------//--------------
+Done!

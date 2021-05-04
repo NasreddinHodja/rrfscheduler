@@ -137,8 +137,8 @@ Scheduler* s_create(Process** procs, int size) {
 }
 
 void s_destroy(Scheduler* s) {
-  /* for(int i = 0; i < s->size; i++) */
-  /*   p_destroy(s->procs[i]); */
+  for(int i = 0; i < s->size; i++)
+    p_destroy(s->procs[i]);
   free(s->procs);
   for(int i = 0; i < 5; i++)
     q_destroy(s->queues[i]);
