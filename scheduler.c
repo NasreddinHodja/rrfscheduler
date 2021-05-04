@@ -65,10 +65,17 @@ Process* p_create(int pid, int ppid, int begin, int service_time,
   p->begin = begin;
   p->priority = high_priority;
   p->service_time = service_time;
+  p->io = (int*) malloc(sizeof(int) * p->service_time);
+  for(int i = 0; i < p->service_time; i++)
+    p->io[i] = io[i];
   p->io = io;
   p->curr_io = 0;
   p->t_io = 0;
   return p;
+}
+
+void p_destroy(Process* p) {
+  free(p);
 }
 
 char* p_to_string(Process* p) {
@@ -111,6 +118,11 @@ Queue* q_create(Process** procs, int size) {
   return q;
 }
 
+void q_destroy(Queue* q) {
+  free(q->queue);
+  free(q);
+}
+
 Scheduler* s_create(Process** procs, int size) {
   Scheduler* s = (Scheduler*) malloc(sizeof(Scheduler));
   s->procs = (Process**) malloc(sizeof(Process*) * MAX_P);
@@ -122,6 +134,16 @@ Scheduler* s_create(Process** procs, int size) {
   s->t = 0;
   s->size = size;
   return s;
+}
+
+void s_destroy(Scheduler* s) {
+  /* for(int i = 0; i < s->size; i++) */
+  /*   p_destroy(s->procs[i]); */
+  free(s->procs);
+  for(int i = 0; i < 5; i++)
+    q_destroy(s->queues[i]);
+  free(s->queues);
+  free(s);
 }
 
 int q_next_idx(Queue* q, int idx) {
@@ -287,6 +309,87 @@ void schedule(Scheduler* s) {
   printf("Done!\n");
 }
 
+Process* p_from_line(char* line) {
+  const char* tok;
+  int pid = -1, ppid = -1, begin, service_time;
+  int* io;
+  int field_idx = 0;
+
+  char* c_ptr = line;
+  char c;
+  while((c = *c_ptr) != '\0') {
+    int field_size = 0;
+    char field[516];
+    while(*(c_ptr+field_size) != '\0'
+          && *(c_ptr+field_size) != '\n'
+          && *(c_ptr+field_size) != '|') {
+      field[field_size] = *(c_ptr+field_size);
+      field_size++;
+    }
+    field[field_size] = '\0';
+
+    if(field_size) {
+      char io_s[128];
+      int io_s_size = 0;
+      int io_idx = 0;
+      char* io_ptr = field;
+      switch(field_idx) {
+        // pid
+        case 0:
+          pid = atoi(field);
+          break;
+        // ppid
+        case 1:
+          ppid = atoi(field);
+          break;
+        // begin
+        case 2:
+          begin = atoi(field);
+          break;
+        // service_time
+        case 3:
+          service_time = atoi(field);
+          io = (int*) malloc(sizeof(int) * service_time);
+          break;
+        // io
+        case 4:
+          while(*io_ptr != '\n'
+                && *io_ptr != '\0') {
+            io_s_size = 0;
+            while(*io_ptr != ',' && *io_ptr != '\n' && *io_ptr != '\0') {
+              io_s[io_s_size++] = *io_ptr++;
+            }
+            io_s[io_s_size] = '\0';
+            io[io_idx++] = atoi(io_s);
+            io_ptr++;
+          }
+          break;
+        default:
+          printf("input is not in the correct format!\n");
+          exit(1);
+      }
+      field_idx++;
+    }
+    c_ptr += (field_size+1);
+  }
+  Process* p = p_create(pid, ppid, begin, service_time, io);
+  return p;
+}
+
+Scheduler* s_from_csv(char* in_path) {
+  Process* procs[MAX_P];
+  FILE* f_stream = fopen(in_path, "r");
+  char line[1024];
+  int p_size = 0;
+  while(fgets(line, 1024, f_stream)) {
+    Process* p = p_from_line(line);
+    printf("%s\n", p_to_string(p));
+    procs[p_size++] = p;
+  }
+  fclose(f_stream);
+  return s_create(procs, p_size);
+}
+
 void init() {
   PROC_COUNT = 1;
 }
@@ -294,19 +397,10 @@ void init() {
 int main() {
   init();
 
-  // TODO make a test case
-  int ios_p1[5] = {-1, printer, -1, -1, -1};
-  Process* p1 = p_create(-1, -1, 0, 5, ios_p1);
-  int ios_p2[5] = {-1, printer, -1, -1, -1};
-  Process* p2 = p_create(-1, -1, 2, 5, ios_p2);
-  int ios_p3[5] = {-1, -1, -1, mag_tape, -1};
-  Process* p3 = p_create(-1, -1, 1, 5, ios_p3);
-
-  Process* procs[3] = {p1, p2, p3};
-
-  Scheduler* scheduler = s_create(procs, 3);
+  Scheduler* scheduler = s_from_csv("input.csv");
 
   schedule(scheduler);
 
+  s_destroy(scheduler);
   return 0;
 }
