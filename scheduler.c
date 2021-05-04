@@ -262,7 +262,6 @@ bool s_execute(Scheduler* s, int q_idx) {
       p->status = waiting;
       p->t_io = rand_duration(false);
       p->curr_io = p->io[p->t];
-      /* printf("===> %d goes to io for %d quantum\n", p->pid, p->t_io); */
       q_push(s->queues[p->io[p->t]], p);
       went_io = true;
       p->t++;
@@ -383,7 +382,6 @@ Scheduler* s_from_csv(char* in_path) {
   int p_size = 0;
   while(fgets(line, 1024, f_stream)) {
     Process* p = p_from_line(line);
-    printf("%s\n", p_to_string(p));
     procs[p_size++] = p;
   }
   fclose(f_stream);
