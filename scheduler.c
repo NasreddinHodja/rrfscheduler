@@ -292,7 +292,7 @@ void schedule(Scheduler* s) {
   do {
     bool executed = false;
     if(st) printf("------------//--------------\n");
-    s_recieve_procs(s, s->t-2);
+    s_recieve_procs(s, s->t-QUANTUM);
     for(int i = high_priority; i <= low_priority; i++) {
       if(s->queues[i]->size == 0) continue;
       executed = s_execute(s, i);
